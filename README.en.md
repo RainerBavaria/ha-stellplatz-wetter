@@ -50,4 +50,7 @@ forecast_type: daily
 forecast_slots: 4
 ```
 
+Inspired by [ha-camper-weather](https://github.com/balronu/ha-camper-weather) by balronu – Stellplatz-Wetter is an independent
+implementation focused on standard weather cards.
+
 Data: [Open-Meteo.com](https://open-meteo.com) (CC BY 4.0) · © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors · Code: MIT

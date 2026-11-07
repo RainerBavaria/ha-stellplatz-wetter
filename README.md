@@ -339,6 +339,11 @@ herunterladen*. Koordinaten, Ortsnamen und Lieblingsplätze sind darin unkenntli
 Ausführliche Logs ohne YAML: *Einstellungen → Geräte & Dienste → Stellplatz-Wetter → ⋮ → Debug-Protokollierung aktivieren*,
 Fehler nachstellen, dann Debug-Protokollierung wieder ausschalten – die Log-Datei wird automatisch heruntergeladen.
 
+## Danksagung
+
+Die Idee entstand durch [ha-camper-weather](https://github.com/balronu/ha-camper-weather) von balronu –
+Stellplatz-Wetter ist eine eigenständige Neuentwicklung mit Fokus auf Standard-Wetterkacheln.
+
 ## Datenquellen und Lizenz
 
 - Wetterdaten: [Open-Meteo.com](https://open-meteo.com) – CC BY 4.0, kostenlos für die private Nutzung
