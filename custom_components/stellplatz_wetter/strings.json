@@ -1,0 +1,73 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Stellplatz Weather",
+        "description": "Weather with forecast for the current location. With a tracker the weather follows the vehicle, otherwise the location on the map is used (can be changed later).",
+        "data": {
+          "name": "Name",
+          "tracker": "Location tracker (optional)",
+          "location": "Manual location"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Stellplatz Weather options",
+        "description": "Moving the location on the map switches the location source to “Manual location”.",
+        "data": {
+          "tracker": "Location tracker",
+          "location": "Manual location",
+          "update_minutes": "Update every",
+          "awning_gust_kmh": "Awning warning from gusts of",
+          "storm_gust_kmh": "Storm warning from gusts of",
+          "frost_temperature": "Frost warning at"
+        },
+        "data_description": {
+          "awning_gust_kmh": "Checks the next 3 hours.",
+          "storm_gust_kmh": "Checks the next 12 hours.",
+          "frost_temperature": "Lowest temperature of the next 12 hours."
+        }
+      }
+    }
+  },
+  "entity": {
+    "weather": {
+      "weather": {
+        "name": "Weather"
+      }
+    },
+    "sensor": {
+      "place": {
+        "name": "Place"
+      }
+    },
+    "binary_sensor": {
+      "awning_warning": {
+        "name": "Awning warning"
+      },
+      "storm_warning": {
+        "name": "Storm warning"
+      },
+      "frost_warning": {
+        "name": "Frost warning"
+      }
+    },
+    "select": {
+      "location_mode": {
+        "name": "Location source",
+        "state": {
+          "tracker": "GPS tracker",
+          "manual": "Manual location"
+        }
+      }
+    },
+    "text": {
+      "place_search": {
+        "name": "Place search"
+      }
+    }
+  }
+}

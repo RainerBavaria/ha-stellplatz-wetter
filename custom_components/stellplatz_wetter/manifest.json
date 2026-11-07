@@ -1,0 +1,13 @@
+{
+  "domain": "stellplatz_wetter",
+  "name": "Stellplatz-Wetter",
+  "codeowners": ["@GITHUB_USER"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/GITHUB_USER/ha-stellplatz-wetter",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/GITHUB_USER/ha-stellplatz-wetter/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

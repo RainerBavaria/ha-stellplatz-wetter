@@ -1,0 +1,73 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Stellplatz-Wetter einrichten",
+        "description": "Wetter mit Vorhersage für den aktuellen Standort. Mit Tracker wandert das Wetter automatisch mit, sonst gilt der Ort auf der Karte (später jederzeit änderbar).",
+        "data": {
+          "name": "Name",
+          "tracker": "Standort-Tracker (optional, z. B. iPhone im Wohnwagen)",
+          "location": "Manueller Ort"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Stellplatz-Wetter Optionen",
+        "description": "Wird der Ort auf der Karte verschoben, wechselt die Standortquelle auf „Manueller Ort“.",
+        "data": {
+          "tracker": "Standort-Tracker",
+          "location": "Manueller Ort",
+          "update_minutes": "Aktualisierung alle",
+          "awning_gust_kmh": "Markisenwarnung ab Böen von",
+          "storm_gust_kmh": "Sturmwarnung ab Böen von",
+          "frost_temperature": "Frostwarnung ab"
+        },
+        "data_description": {
+          "awning_gust_kmh": "Geprüft werden die nächsten 3 Stunden.",
+          "storm_gust_kmh": "Geprüft werden die nächsten 12 Stunden.",
+          "frost_temperature": "Tiefstwert der nächsten 12 Stunden."
+        }
+      }
+    }
+  },
+  "entity": {
+    "weather": {
+      "weather": {
+        "name": "Wetter"
+      }
+    },
+    "sensor": {
+      "place": {
+        "name": "Ort"
+      }
+    },
+    "binary_sensor": {
+      "awning_warning": {
+        "name": "Markisenwarnung"
+      },
+      "storm_warning": {
+        "name": "Sturmwarnung"
+      },
+      "frost_warning": {
+        "name": "Frostwarnung"
+      }
+    },
+    "select": {
+      "location_mode": {
+        "name": "Standortquelle",
+        "state": {
+          "tracker": "GPS-Tracker",
+          "manual": "Manueller Ort"
+        }
+      }
+    },
+    "text": {
+      "place_search": {
+        "name": "Ortssuche"
+      }
+    }
+  }
+}
