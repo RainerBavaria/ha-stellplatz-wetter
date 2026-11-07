@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="900" height="400" rx="16" fill="#f6f8fa"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#fff;stroke:#d0d7de;stroke-width:1.5}
+    .hl{fill:#ddf4ff;stroke:#2169b4;stroke-width:2}
+    .t{font-size:15px;font-weight:600;fill:#1f2328}
+    .s{font-size:12.5px;fill:#57606a}
+    .h{font-size:13px;font-weight:700;fill:#2169b4;letter-spacing:.5px}
+    .l{stroke:#57606a;stroke-width:1.6;fill:none;marker-end:url(#a)}
+  </style>
+
+  <text x="40" y="38" class="h">1 · STANDORT</text>
+  <rect x="30" y="52" width="230" height="74" rx="10" class="box"/>
+  <text x="46" y="80" class="t">GPS-Tracker</text>
+  <text x="46" y="101" class="s">z. B. iPhone im Wohnwagen</text>
+  <text x="46" y="117" class="s">neue Abfrage ab 1 km Bewegung</text>
+
+  <rect x="30" y="140" width="230" height="74" rx="10" class="box"/>
+  <text x="46" y="168" class="t">Manueller Ort</text>
+  <text x="46" y="189" class="s">Suche: Ort, PLZ, Campingplatz</text>
+  <text x="46" y="205" class="s">oder Punkt auf der Karte</text>
+
+  <rect x="30" y="228" width="230" height="58" rx="10" class="box"/>
+  <text x="46" y="254" class="t">Umschalter</text>
+  <text x="46" y="273" class="s">Standortquelle: GPS ↔ Manuell</text>
+
+  <text x="335" y="38" class="h">2 · INTEGRATION</text>
+  <rect x="325" y="52" width="250" height="234" rx="12" class="hl"/>
+  <text x="345" y="84" class="t">Stellplatz-Wetter</text>
+  <text x="345" y="112" class="s">• Wetter von Open-Meteo</text>
+  <text x="345" y="134" class="s">• Ortsname von OpenStreetMap</text>
+  <text x="345" y="156" class="s">• Warnungen aus der Vorhersage</text>
+  <text x="345" y="178" class="s">• alle 30 min aktualisiert</text>
+  <text x="345" y="200" class="s">• Funkloch: letzte Daten bis 6 h</text>
+  <text x="345" y="236" class="s">Einrichtung nur über die</text>
+  <text x="345" y="254" class="s">Oberfläche – keine YAML-Datei</text>
+
+  <text x="650" y="38" class="h">3 · DASHBOARD</text>
+  <rect x="640" y="52" width="230" height="74" rx="10" class="box"/>
+  <text x="656" y="80" class="t">Wetter-Entität</text>
+  <text x="656" y="101" class="s">für alle Standard-Wetterkacheln</text>
+  <text x="656" y="117" class="s">Vorhersage 72 h / 7 Tage</text>
+
+  <rect x="640" y="140" width="230" height="74" rx="10" class="box"/>
+  <text x="656" y="168" class="t">Warnungen</text>
+  <text x="656" y="189" class="s">Markise · Sturm · Frost</text>
+  <text x="656" y="205" class="s">für Automationen</text>
+
+  <rect x="640" y="228" width="230" height="58" rx="10" class="box"/>
+  <text x="656" y="254" class="t">Ort-Sensor</text>
+  <text x="656" y="273" class="s">Name des aktuellen Ortes</text>
+
+  <path d="M260 89 H318" class="l"/>
+  <path d="M260 177 H318" class="l"/>
+  <path d="M260 257 H318" class="l"/>
+  <path d="M575 89 H633" class="l"/>
+  <path d="M575 177 H633" class="l"/>
+  <path d="M575 257 H633" class="l"/>
+
+  <rect x="30" y="314" width="840" height="62" rx="10" fill="#fff" stroke="#d0d7de" stroke-dasharray="5 4"/>
+  <text x="50" y="340" class="t">Mehrdeutige Suche (z. B. „Neustadt“)</text>
+  <text x="50" y="362" class="s">Die besten 3 Treffer erscheinen unter „Suchtreffer“ – der Standort ändert sich erst, wenn du einen davon auswählst.</text>
+</svg>
