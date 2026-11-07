@@ -58,3 +58,34 @@ def test_postcode_regex():
     assert POSTCODE_RE.match("84130 DE")["cc"] == "DE"
     assert POSTCODE_RE.match("Grado") is None
     assert POSTCODE_RE.match("123") is None
+
+
+def _om(name, cc, admin1, country, lat):
+    return {"name": name, "latitude": lat, "longitude": 11.0, "country_code": cc, "admin1": admin1, "country": country}
+
+
+def test_split_query():
+    from custom_components.stellplatz_wetter.api import split_query
+    assert split_query("neustadt") == ("neustadt", None, None)
+    assert split_query("neustadt, de") == ("neustadt", None, "DE")
+    assert split_query("neustadt Bayern , de") == ("neustadt Bayern", None, "DE")
+    assert split_query("Neustadt, Bayern, DE") == ("Neustadt", "Bayern", "DE")
+    assert split_query("Grado, Friaul") == ("Grado", "Friaul", None)
+
+
+def test_rank_prefers_home_country_and_filters_words():
+    from custom_components.stellplatz_wetter.api import rank_places
+    places = parse_search({"results": [
+        _om("Wejherowo", "PL", "Pommern", "Polen", 54.6),
+        _om("Neustadt (Eichsfeld)", "DE", "Thüringen", "Deutschland", 51.5),
+        _om("Neustadt", "CA", "Ontario", "Kanada", 44.0),
+        _om("Neustadt an der Donau", "DE", "Bayern", "Deutschland", 48.8),
+        _om("Hof", "DE", "Bayern", "Deutschland", 50.3),
+    ]}, limit=None)
+    ranked = rank_places(places, ["neustadt"], "DE", None)
+    assert [p.country_code for p in ranked] == ["DE", "DE", "CA"]
+    assert ranked[0].name.startswith("Neustadt (Eichsfeld)")
+    ranked = rank_places(places, ["neustadt", "bayern"], "DE", "DE")
+    assert [p.name for p in ranked] == ["Neustadt an der Donau, Bayern, Deutschland"]
+    # Tippfehler: kein Wort passt -> ungefilterte Treffer statt nichts
+    assert rank_places(places, ["neustdt"], "DE", None)

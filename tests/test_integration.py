@@ -269,3 +269,17 @@ async def test_pending_choice_cleared_by_gps_switch(hass, setup, aioclient_mock)
 async def test_no_search_yet_shows_dash(hass, setup):
     state = hass.states.get("select.wohnwagen_suchtreffer")
     assert state.state == "–" and state.attributes["options"] == ["–"]
+
+
+async def test_words_without_comma_filter_results(hass, setup, aioclient_mock):
+    aioclient_mock.get(GEOCODING_URL, json={"results": [
+        {"name": "Neustadt an der Donau", "latitude": 48.80, "longitude": 11.77, "admin1": "Bayern", "country": "Deutschland", "country_code": "DE"},
+        {"name": "Hof", "latitude": 50.31, "longitude": 11.91, "admin1": "Bayern", "country": "Deutschland", "country_code": "DE"},
+    ]})
+    await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "neustadt Bayern , de"}, blocking=True)
+    await hass.async_block_till_done()
+    geo = [c for c in aioclient_mock.mock_calls if str(c[1]).startswith(GEOCODING_URL)]
+    assert {c[1].query["name"] for c in geo[-2:]} == {"neustadt Bayern", "neustadt, Bayern"}
+    assert geo[-1][1].query["countryCode"] == "DE"
+    # nur ein passender Treffer -> sofort übernommen
+    assert hass.states.get("sensor.wohnwagen_ort").state == "Neustadt an der Donau, Bayern, Deutschland"

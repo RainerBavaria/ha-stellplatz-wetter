@@ -3,6 +3,17 @@
 Alle Änderungen an **Stellplatz-Wetter**, neueste zuerst.
 Die Versionsnummer steht in `custom_components/stellplatz_wetter/manifest.json`.
 
+## 1.2.0 – 2026-11-07
+
+### Verbessert
+- **Bessere Trefferliste**: Orte im eigenen Land (laut Home-Assistant-Einstellungen) stehen vorne. Bisher kamen bei „Neustadt“ z. B. Orte in Polen oder Kanada zuerst.
+- **Region ohne Komma**: „Neustadt Bayern“ wird jetzt als Ort + Region verstanden. Es bleiben nur Treffer, in denen alle eingegebenen Wörter vorkommen (bisher tauchte z. B. „Hof“ auf).
+- Ländercode am Ende (`, DE`) wird als echter Länderfilter an die Suche übergeben – auch bei der Freitext-Suche über OpenStreetMap.
+- Tippfehler führen weiterhin zu Treffern (Filter greift nur, wenn er etwas übrig lässt).
+
+### Dokumentation
+- Screenshots in der README.
+
 ## 1.1.1 – 2026-11-07
 
 ### Verbessert

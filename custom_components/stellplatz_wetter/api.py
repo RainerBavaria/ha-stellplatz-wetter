@@ -110,6 +110,8 @@ class Place:
     latitude: float
     longitude: float
     name: str
+    country_code: str | None = None
+    match_text: str = ""
 
 
 MAX_RESULTS = 3
@@ -122,12 +124,13 @@ def _unique(places: list[Place]) -> list[Place]:
         if any(distance_km(p.latitude, p.longitude, place.latitude, place.longitude) < 1 for p in result):
             continue
         if any(p.name == place.name for p in result):
-            place = Place(place.latitude, place.longitude, f"{place.name} ({place.latitude:.2f}, {place.longitude:.2f})")
+            place = Place(place.latitude, place.longitude, f"{place.name} ({place.latitude:.2f}, {place.longitude:.2f})",
+                          place.country_code, place.match_text)
         result.append(place)
     return result[:MAX_RESULTS]
 
 
-def parse_search(payload: dict[str, Any]) -> list[Place]:
+def parse_search(payload: dict[str, Any], limit: int | None = MAX_RESULTS) -> list[Place]:
     """Open-Meteo-Ortssuche -> Liste von Treffern."""
     places: list[Place] = []
     for item in (payload or {}).get("results") or []:
@@ -137,8 +140,9 @@ def parse_search(payload: dict[str, Any]) -> list[Place]:
             continue
         parts = [item.get("name"), item.get("admin1"), item.get("country")]
         label = ", ".join(dict.fromkeys(p for p in parts if p)) or f"{lat:.3f}, {lon:.3f}"
-        places.append(Place(lat, lon, label))
-    return _unique(places)
+        match = " ".join(str(item.get(k) or "") for k in ("name", "admin1", "admin2", "admin3", "admin4", "country", "country_code"))
+        places.append(Place(lat, lon, label, (item.get("country_code") or "").upper() or None, match.casefold()))
+    return places if limit is None else _unique(places)[:limit]
 
 
 POSTCODE_RE = re.compile(r"^\s*(?P<code>[0-9]{4,5})\s*(?:[, ]\s*(?P<cc>[A-Za-z]{2}))?\s*$")
@@ -175,11 +179,50 @@ async def _nominatim(session: ClientSession, params: dict[str, Any], postcode: s
         return parse_nominatim_search(await response.json(content_type=None), postcode)
 
 
-async def _open_meteo_search(session: ClientSession, query: str) -> list[Place]:
-    params = {"name": query, "count": MAX_RESULTS, "language": "de", "format": "json"}
+async def _open_meteo_search(session: ClientSession, name: str, country: str | None = None) -> list[Place]:
+    params = {"name": name, "count": 20, "language": "de", "format": "json"}
+    if country:
+        params["countryCode"] = country.upper()
     async with session.get(GEOCODING_URL, params=params, timeout=TIMEOUT) as response:
         response.raise_for_status()
-        return parse_search(await response.json(content_type=None))
+        return parse_search(await response.json(content_type=None), limit=None)
+
+
+def split_query(query: str) -> tuple[str, str | None, str | None]:
+    """"Neustadt, Bayern, DE" -> ("Neustadt", "Bayern", "DE")."""
+    parts = [p.strip() for p in query.split(",") if p.strip()]
+    country = None
+    if len(parts) >= 2 and re.fullmatch(r"[A-Za-z]{2}", parts[-1]):
+        country = parts.pop().upper()
+    name = parts[0] if parts else query.strip()
+    region = ", ".join(parts[1:]) or None
+    return name, region, country
+
+
+def rank_places(places: list[Place], words: list[str], home_country: str | None, country: str | None) -> list[Place]:
+    """Treffer filtern (alle eingegebenen Wörter müssen vorkommen) und das eigene Land nach vorne sortieren."""
+    words = [w.casefold() for w in words if w]
+    matching = [p for p in places if all(w in p.match_text for w in words)]
+    chosen = matching or places
+    if not country and home_country:
+        home = home_country.upper()
+        chosen = sorted(chosen, key=lambda p: p.country_code != home)  # stabil: Reihenfolge der API bleibt erhalten
+    return _unique(chosen)[:MAX_RESULTS]
+
+
+async def _name_search(session: ClientSession, query: str, home_country: str | None) -> list[Place]:
+    name, region, country = split_query(query)
+    words = name.split()
+    queries = [f"{name}, {region}" if region else name]
+    if not region and len(words) >= 2:
+        # "neustadt bayern" -> zusätzlich "neustadt" mit "bayern" als Region
+        queries.append(f"{words[0]}, {' '.join(words[1:])}")
+    found: list[Place] = []
+    for text in queries:
+        found += await _open_meteo_search(session, text, country)
+    if not found and not region and len(words) >= 2:
+        found = await _open_meteo_search(session, words[0], country)
+    return rank_places(found, words + (region or "").replace(",", " ").split(), home_country, country)
 
 
 async def async_search_places(session: ClientSession, query: str, home_country: str | None = None) -> list[Place]:
@@ -194,11 +237,13 @@ async def async_search_places(session: ClientSession, query: str, home_country: 
                 if places:
                     return places
             return []
-        places = await _open_meteo_search(session, query)
+        places = await _name_search(session, query, home_country)
         if places:
             return places
         # Fallback: Freitextsuche bei OpenStreetMap (findet auch Adressen, Campingplätze usw.)
-        return await _nominatim(session, {"q": query})
+        name, region, country = split_query(query)
+        text = ", ".join(p for p in (name, region) if p)
+        return await _nominatim(session, {"q": text, **({"countrycodes": country.lower()} if country else {})})
     except Exception as err:
         raise ApiError(f"Ortssuche fehlgeschlagen: {type(err).__name__}") from err
 

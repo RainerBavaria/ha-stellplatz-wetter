@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
-  <img src="https://img.shields.io/badge/Version-1.1.1-blue.svg" alt="Version 1.1.1">
+  <img src="https://img.shields.io/badge/Version-1.2.0-blue.svg" alt="Version 1.2.0">
   <img src="https://img.shields.io/badge/Home%20Assistant-2025.1%2B-03a9f4.svg" alt="Home Assistant 2025.1+">
 </p>
 
@@ -33,6 +33,19 @@ Wetter als **normale Wetter-Entität** bereit. Damit funktionieren alle übliche
 - 🏷️ **Ortsname** als Sensor
 - 📶 **Funkloch-fest**: die letzten Daten bleiben bis zu 6 Stunden sichtbar
 - 🖱️ **Keine YAML-Konfiguration** – alles über die Oberfläche
+
+## So sieht es aus
+
+<table>
+  <tr>
+    <td width="55%"><img src="docs/images/dashboard.png" alt="Wetter mit Vorhersage und Standortwahl"></td>
+    <td width="45%"><img src="docs/images/trefferauswahl.png" alt="Trefferauswahl bei mehrdeutiger Suche"></td>
+  </tr>
+  <tr>
+    <td><sub>Clock Weather Card mit <code>weather.wohnwagen_wetter</code>, darunter Standort und Ortssuche</sub></td>
+    <td><sub>Mehrdeutige Suche „neustadt, de“: die besten 3 Treffer zur Auswahl</sub></td>
+  </tr>
+</table>
 
 ## So funktioniert es
 
@@ -99,9 +112,10 @@ Werte des Attributs `quelle` am Ort-Sensor: `tracker` (aktuelle GPS-Position), `
 | Eingabe | Was passiert |
 |---|---|
 | `Grado` | eindeutiger Treffer → wird sofort übernommen |
-| `Neustadt` | mehrere Treffer → unter **Suchtreffer** steht „Bitte Treffer wählen“, die besten 3 Orte zur Auswahl. Der Standort ändert sich erst nach der Auswahl |
+| `Neustadt` | mehrere Treffer → unter **Suchtreffer** steht „Bitte Treffer wählen“, die besten 3 Orte zur Auswahl (Orte im eigenen Land zuerst). Der Standort ändert sich erst nach der Auswahl |
+| `Neustadt Bayern` · `Neustadt, Bayern` | mit Bundesland/Region eingegrenzt – mit oder ohne Komma |
 | `84130` | Postleitzahl – zuerst im Land deiner Home-Assistant-Einstellungen |
-| `6020, AT` · `Grado, IT` | mit Land eingegrenzt |
+| `6020, AT` · `Grado, IT` · `Neustadt, DE` | mit Land eingegrenzt (Ländercode mit Komma am Ende) |
 | `Camping Tenda Azzurra` | Freitext über OpenStreetMap, falls kein Ort gefunden wird |
 
 Zurück zum GPS: **Standortquelle** auf **GPS-Tracker** stellen.
