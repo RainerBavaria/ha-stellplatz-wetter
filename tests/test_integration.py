@@ -209,11 +209,12 @@ async def test_ambiguous_search_waits_for_choice(hass, setup, aioclient_mock):
     await hass.async_block_till_done()
     results = hass.states.get("select.wohnwagen_suchtreffer")
     assert results.attributes["options"] == [
+        "Bitte Treffer wählen",
         "Neustadt an der Donau, Bayern, Deutschland",
         "Neustadt an der Weinstraße, Rheinland-Pfalz, Deutschland",
         "Neustadt in Holstein, Schleswig-Holstein, Deutschland",
     ]
-    assert results.state == "unknown" and results.attributes["auswahl_offen"] is True
+    assert results.state == "Bitte Treffer wählen" and results.attributes["auswahl_offen"] is True
     # noch nichts übernommen
     assert hass.states.get("select.wohnwagen_standortquelle").state == "tracker"
     assert len(forecast_calls(aioclient_mock)) == calls_before
@@ -247,3 +248,24 @@ async def test_name_not_in_open_meteo_falls_back_to_osm(hass, setup, aioclient_m
     await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "Camping Tenda Azzurra"}, blocking=True)
     await hass.async_block_till_done()
     assert hass.states.get("sensor.wohnwagen_ort").state == "Camping Tenda Azzurra, Grado, Gorizia"
+
+
+async def test_pending_choice_cleared_by_gps_switch(hass, setup, aioclient_mock):
+    aioclient_mock.get(GEOCODING_URL, json=NEUSTADT)
+    await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "Neustadt"}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get("select.wohnwagen_suchtreffer").attributes["auswahl_offen"] is True
+    await hass.services.async_call("select", "select_option", {"entity_id": "select.wohnwagen_standortquelle", "option": "tracker"}, blocking=True)
+    await hass.async_block_till_done()
+    state = hass.states.get("select.wohnwagen_suchtreffer")
+    assert state.attributes["auswahl_offen"] is False and "Bitte Treffer wählen" not in state.attributes["options"]
+    # Platzhalter auswählen bewirkt nichts
+    await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "Neustadt"}, blocking=True)
+    await hass.services.async_call("select", "select_option", {"entity_id": "select.wohnwagen_suchtreffer", "option": "Bitte Treffer wählen"}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get("select.wohnwagen_standortquelle").state == "tracker"
+
+
+async def test_no_search_yet_shows_dash(hass, setup):
+    state = hass.states.get("select.wohnwagen_suchtreffer")
+    assert state.state == "–" and state.attributes["options"] == ["–"]

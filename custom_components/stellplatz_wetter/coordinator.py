@@ -108,6 +108,7 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
             },
             "last_tracker": stored.get("last_tracker"),
             "results": stored.get("results") or [],
+            "results_pending": bool(stored.get("results_pending")),
         }
         if self.state["mode"] == MODE_TRACKER and not self.tracker_id:
             self.state["mode"] = MODE_MANUAL
@@ -117,6 +118,7 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
         """Manuellen Ort sofort speichern (vor einem Neuladen der Integration)."""
         self.state["manual"] = {"latitude": float(latitude), "longitude": float(longitude), "name": None}
         self.state["mode"] = MODE_MANUAL
+        self.state["results_pending"] = False
         await self._store.async_save({**self.state, "last_search": self.last_search})
 
     def _save(self) -> None:
@@ -131,6 +133,7 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
         return self.state.get("mode", MODE_MANUAL)
 
     async def async_set_mode(self, mode: str) -> None:
+        self.state["results_pending"] = False
         self.state["mode"] = mode
         self._save()
         await self.async_refresh()
@@ -138,6 +141,7 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
     async def async_set_manual(self, latitude: float, longitude: float, name: str | None = None) -> None:
         self.state["manual"] = {"latitude": float(latitude), "longitude": float(longitude), "name": name}
         self.state["mode"] = MODE_MANUAL
+        self.state["results_pending"] = False
         self._save()
         await self.async_refresh()
 
@@ -154,9 +158,14 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
         if len(places) == 1:
             await self.async_set_manual(places[0].latitude, places[0].longitude, places[0].name)
         else:
+            self.state["results_pending"] = True
             self._save()
             self.async_update_listeners()  # Suchtreffer-Auswahl aktualisieren, Standort bleibt
         return True
+
+    @property
+    def results_pending(self) -> bool:
+        return bool(self.state.get("results_pending")) and bool(self.results)
 
     @property
     def results(self) -> list[dict[str, Any]]:

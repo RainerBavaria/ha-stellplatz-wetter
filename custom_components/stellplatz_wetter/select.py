@@ -30,29 +30,37 @@ class LocationModeSelect(StellplatzEntity, SelectEntity):
 
 
 NO_RESULTS = "–"
+PENDING = "Bitte Treffer wählen"
 
 
 class SearchResultSelect(StellplatzEntity, SelectEntity):
     """Die besten Treffer der letzten Ortssuche."""
 
-    _attr_icon = "mdi:format-list-bulleted"
+    @property
+    def icon(self) -> str:
+        return "mdi:gesture-tap" if self.coordinator.results_pending else "mdi:format-list-bulleted"
 
     @property
     def options(self) -> list[str]:
-        return [item["name"] for item in self.coordinator.results] or [NO_RESULTS]
+        names = [item["name"] for item in self.coordinator.results]
+        if self.coordinator.results_pending:
+            return [PENDING, *names]
+        return names or [NO_RESULTS]
 
     @property
     def current_option(self) -> str | None:
+        if self.coordinator.results_pending:
+            return PENDING
         manual = self.coordinator.state.get("manual") or {}
         if self.coordinator.mode == MODE_MANUAL and manual.get("name") in self.options:
             return manual["name"]
-        return None
+        return NO_RESULTS if not self.coordinator.results else None
 
     async def async_select_option(self, option: str) -> None:
-        if option == NO_RESULTS:
+        if option in (NO_RESULTS, PENDING):
             return
         await self.coordinator.async_select_result(option)
 
     @property
     def extra_state_attributes(self) -> dict[str, bool]:
-        return {"auswahl_offen": bool(self.coordinator.results) and self.current_option is None}
+        return {"auswahl_offen": self.coordinator.results_pending}
