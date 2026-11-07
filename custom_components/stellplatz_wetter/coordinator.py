@@ -13,7 +13,8 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import ApiError, WeatherData, async_fetch_forecast, async_reverse_name, async_search_places, distance_km
+from .api import ApiError, ReversePlace, WeatherData, async_fetch_forecast, async_reverse, async_search_places, distance_km
+from .warnings import OfficialWarning, async_fetch_warnings
 from .const import (
     AWNING_HOURS,
     CONF_AWNING_GUST,
@@ -25,8 +26,24 @@ from .const import (
     DEFAULT_FROST_TEMP,
     DEFAULT_STORM_GUST,
     DEFAULT_UPDATE_MINUTES,
+    CONF_ENABLE_RAIN,
+    CONF_ENABLE_SOLAR,
+    CONF_ENABLE_WARNINGS,
+    CONF_PV_AZIMUTH,
+    CONF_PV_EFFICIENCY,
+    CONF_PV_POWER,
+    CONF_PV_TILT,
+    DEFAULT_PV_AZIMUTH,
+    DEFAULT_PV_EFFICIENCY,
+    DEFAULT_PV_POWER,
+    DEFAULT_PV_TILT,
     DOMAIN,
+    FEATURES,
     FROST_HOURS,
+    RAIN_LOOKAHEAD_MIN,
+    RAIN_THRESHOLD_MM,
+    THUNDER_CODES,
+    THUNDER_HOURS,
     MODE_MANUAL,
     MODE_TRACKER,
     REFRESH_DISTANCE_KM,
@@ -44,6 +61,8 @@ class Location:
     longitude: float
     source: str  # tracker | tracker_last_known | manual | home
     name: str | None = None
+    country_code: str | None = None
+    regions: tuple[str, ...] = ()
 
 
 @dataclass
@@ -51,6 +70,8 @@ class StellplatzData:
     weather: WeatherData
     location: Location
     stale: bool = False
+    warnings: list[OfficialWarning] | None = None
+    warnings_error: str | None = None
 
 
 def current_index(rows: list[dict[str, Any]], now: datetime | None = None) -> int:
@@ -90,9 +111,14 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
         self.awning_gust = float(options.get(CONF_AWNING_GUST, DEFAULT_AWNING_GUST))
         self.storm_gust = float(options.get(CONF_STORM_GUST, DEFAULT_STORM_GUST))
         self.frost_temp = float(options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP))
+        self.features = {feature: bool(options.get(feature, False)) for feature in FEATURES}
+        self.pv_power = float(options.get(CONF_PV_POWER, DEFAULT_PV_POWER))
+        self.pv_tilt = float(options.get(CONF_PV_TILT, DEFAULT_PV_TILT))
+        self.pv_azimuth = float(options.get(CONF_PV_AZIMUTH, DEFAULT_PV_AZIMUTH))
+        self.pv_efficiency = float(options.get(CONF_PV_EFFICIENCY, DEFAULT_PV_EFFICIENCY))
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}")
         self.state: dict[str, Any] = {}
-        self._name_cache: tuple[float, float, str] | None = None
+        self._place_cache: tuple[float, float, ReversePlace] | None = None
         self.last_search: str | None = None
 
     # ---------- Zustand (Modus, manueller Ort) ----------
@@ -109,6 +135,7 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
             "last_tracker": stored.get("last_tracker"),
             "results": stored.get("results") or [],
             "results_pending": bool(stored.get("results_pending")),
+            "favorites": stored.get("favorites") or [],
         }
         if self.state["mode"] == MODE_TRACKER and not self.tracker_id:
             self.state["mode"] = MODE_MANUAL
@@ -217,32 +244,53 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
                 return Location(float(manual["latitude"]), float(manual["longitude"]), "manual", manual.get("name"))
         return Location(float(self.hass.config.latitude), float(self.hass.config.longitude), "home")
 
-    async def _async_place_name(self, loc: Location) -> str | None:
-        if loc.name:
-            return loc.name
-        cache = self._name_cache
+    async def _async_place_details(self, loc: Location) -> ReversePlace | None:
+        """Ortsname/Land/Regionen per OpenStreetMap, zwischengespeichert (neu erst ab 1 km Abstand)."""
+        cache = self._place_cache
         if cache and distance_km(cache[0], cache[1], loc.latitude, loc.longitude) < REFRESH_DISTANCE_KM:
             return cache[2]
-        name = await async_reverse_name(async_get_clientsession(self.hass), loc.latitude, loc.longitude)
-        if name:
-            self._name_cache = (loc.latitude, loc.longitude, name)
-            return name
+        details = await async_reverse(async_get_clientsession(self.hass), loc.latitude, loc.longitude)
+        if details and (details.name or details.country_code):
+            self._place_cache = (loc.latitude, loc.longitude, details)
+            return details
         return cache[2] if cache and distance_km(cache[0], cache[1], loc.latitude, loc.longitude) < 5 else None
 
     # ---------- Abfrage ----------
     async def _async_update_data(self) -> StellplatzData:
         loc = self._resolve_location()
         session = async_get_clientsession(self.hass)
+        solar = (self.pv_tilt, self.pv_azimuth) if self.features[CONF_ENABLE_SOLAR] else None
         try:
-            weather = await async_fetch_forecast(session, loc.latitude, loc.longitude)
+            weather = await async_fetch_forecast(session, loc.latitude, loc.longitude, solar=solar,
+                                                 minutely=self.features[CONF_ENABLE_RAIN])
         except ApiError as err:
             previous = self.data
             if previous and datetime.now(UTC) - previous.weather.fetched_at < timedelta(hours=STALE_DATA_HOURS):
                 LOGGER.warning("Wetter vorübergehend nicht abrufbar, zeige letzte Daten: %s", err)
-                return StellplatzData(previous.weather, previous.location, stale=True)
+                return StellplatzData(previous.weather, previous.location, True, previous.warnings, previous.warnings_error)
             raise UpdateFailed(str(err)) from err
-        loc.name = await self._async_place_name(loc)
-        return StellplatzData(weather, loc)
+
+        if not loc.name or self.features[CONF_ENABLE_WARNINGS]:
+            details = await self._async_place_details(loc)
+            if details:
+                loc.name = loc.name or details.name
+                loc.country_code = details.country_code
+                loc.regions = details.regions
+
+        warnings: list[OfficialWarning] | None = None
+        warnings_error: str | None = None
+        if self.features[CONF_ENABLE_WARNINGS]:
+            try:
+                warnings = await async_fetch_warnings(session, loc.latitude, loc.longitude, loc.country_code, loc.regions)
+            except ApiError as err:
+                warnings_error = str(err)
+                previous = self.data
+                if previous and previous.warnings is not None and distance_km(
+                    previous.location.latitude, previous.location.longitude, loc.latitude, loc.longitude
+                ) < REFRESH_DISTANCE_KM:
+                    warnings = previous.warnings
+                LOGGER.warning("Amtliche Warnungen nicht abrufbar: %s", err)
+        return StellplatzData(weather, loc, False, warnings, warnings_error)
 
     # ---------- Auswertungen ----------
     def upcoming(self, hours: int) -> list[dict[str, Any]]:
@@ -273,3 +321,108 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
     def frost(self) -> tuple[bool | None, float | None]:
         low = self._min(self.upcoming(FROST_HOURS), "temperature_2m")
         return (None, None) if low is None else (low <= self.frost_temp, low)
+
+    # ---------- Optionale Auswertungen ----------
+    def _day_bounds(self, day: int) -> tuple[datetime, datetime] | None:
+        """Beginn/Ende des Tages (0 = heute) in Ortszeit des Stellplatzes."""
+        if not self.data:
+            return None
+        daily = self.data.weather.daily
+        if len(daily) < day + 2:
+            return None
+        return daily[day]["time"], daily[day + 1]["time"]
+
+    def solar_kwh(self, day: int, from_now: bool = False) -> float | None:
+        """Erwarteter PV-Ertrag in kWh: Einstrahlung (W/m², Stundenmittel) × Wp/1000 × Wirkungsgrad."""
+        bounds = self._day_bounds(day)
+        if not bounds:
+            return None
+        start, end = bounds
+        rows = self.data.weather.hourly
+        values: list[float] = []
+        now = datetime.now(UTC)
+        for row in rows:
+            # Open-Meteo: Wert gilt für die Stunde *vor* dem Zeitstempel
+            hour_end = row["time"]
+            if not (start < hour_end <= end) or row.get("global_tilted_irradiance") is None:
+                continue
+            if from_now and hour_end <= now:
+                continue
+            values.append(float(row["global_tilted_irradiance"]))
+        if not values:
+            return 0.0 if from_now else None
+        kwh = sum(values) / 1000 * (self.pv_power / 1000) * (self.pv_efficiency / 100)
+        return round(kwh, 2)
+
+    def rain_outlook(self) -> tuple[int | None, float]:
+        """(Minuten bis Regen oder None, Regenmenge in der nächsten Stunde)."""
+        if not self.data:
+            return None, 0.0
+        now = datetime.now(UTC)
+        first: int | None = None
+        total = 0.0
+        for row in self.data.weather.minutely:
+            # Wert gilt für die 15 Minuten vor dem Zeitstempel
+            start = row["time"] - timedelta(minutes=15)
+            if row["time"] <= now:
+                continue
+            amount = float(row.get("precipitation") or 0)
+            minutes = max(0, int((start - now).total_seconds() // 60))
+            if minutes < RAIN_LOOKAHEAD_MIN:
+                total += amount
+            if first is None and amount >= RAIN_THRESHOLD_MM:
+                first = minutes
+        return first, round(total, 1)
+
+    def thunder(self) -> tuple[bool | None, str | None]:
+        rows = self.upcoming(THUNDER_HOURS)
+        if not rows:
+            return None, None
+        for row in rows:
+            if row.get("weather_code") in THUNDER_CODES:
+                return True, row["time"].isoformat()
+        return False, None
+
+    def sun_event(self, key: str) -> datetime | None:
+        """Nächster Sonnenauf- bzw. -untergang am Stellplatz."""
+        if not self.data:
+            return None
+        now = datetime.now(UTC)
+        for day in self.data.weather.daily:
+            moment = day.get(key)
+            if moment and moment > now:
+                return moment
+        return None
+
+    # ---------- Lieblingsplätze ----------
+    @property
+    def favorites(self) -> list[dict[str, Any]]:
+        return list(self.state.get("favorites") or [])
+
+    async def async_save_favorite(self) -> str:
+        if not self.data:
+            raise ValueError("Noch kein Standort bekannt")
+        loc = self.data.location
+        name = loc.name or f"{loc.latitude:.3f}, {loc.longitude:.3f}"
+        favorites = self.favorites
+        for fav in favorites:
+            if distance_km(fav["latitude"], fav["longitude"], loc.latitude, loc.longitude) < 0.2:
+                return fav["name"]
+        if any(f["name"] == name for f in favorites):
+            name = f"{name} ({loc.latitude:.3f}, {loc.longitude:.3f})"
+        favorites.append({"name": name, "latitude": loc.latitude, "longitude": loc.longitude})
+        self.state["favorites"] = favorites
+        await self.async_flush()
+        self.async_update_listeners()
+        return name
+
+    async def async_select_favorite(self, name: str) -> None:
+        for fav in self.favorites:
+            if fav["name"] == name:
+                await self.async_set_manual(fav["latitude"], fav["longitude"], fav["name"])
+                return
+        raise ValueError(name)
+
+    async def async_remove_favorites(self, names: list[str]) -> None:
+        self.state["favorites"] = [f for f in self.favorites if f["name"] not in names]
+        await self.async_flush()

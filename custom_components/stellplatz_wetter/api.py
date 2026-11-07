@@ -39,6 +39,7 @@ class WeatherData:
     current: dict[str, Any]
     hourly: list[dict[str, Any]]
     daily: list[dict[str, Any]]
+    minutely: list[dict[str, Any]] = field(default_factory=list)
     fetched_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -71,28 +72,44 @@ def parse_forecast(payload: dict[str, Any]) -> WeatherData:
         raise ApiError("Unerwartete Antwort von Open-Meteo")
     current = dict(payload.get("current") or {})
     current["time"] = _ts(current.get("time"))
-    hourly = _rows(payload.get("hourly"), HOURLY_VARS)
+    hourly = _rows(payload.get("hourly"), HOURLY_VARS + ("global_tilted_irradiance",))
     daily = _rows(payload.get("daily"), DAILY_VARS)
     for day in daily:
         day["sunrise"] = _ts(day.get("sunrise"))
         day["sunset"] = _ts(day.get("sunset"))
     if not hourly:
         raise ApiError("Open-Meteo hat keine Vorhersage geliefert")
-    return WeatherData(current=current, hourly=hourly, daily=daily)
+    minutely = _rows(payload.get("minutely_15"), ("precipitation",))
+    return WeatherData(current=current, hourly=hourly, daily=daily, minutely=minutely)
 
 
-async def async_fetch_forecast(session: ClientSession, latitude: float, longitude: float) -> WeatherData:
-    params = {
+async def async_fetch_forecast(
+    session: ClientSession,
+    latitude: float,
+    longitude: float,
+    *,
+    solar: tuple[float, float] | None = None,
+    minutely: bool = False,
+) -> WeatherData:
+    """Wetter abfragen. solar=(Neigung, Azimut) fordert Einstrahlung an, minutely 15-Minuten-Niederschlag."""
+    hourly = HOURLY_VARS + (("global_tilted_irradiance",) if solar else ())
+    params: dict[str, Any] = {
         "latitude": f"{latitude:.4f}",
         "longitude": f"{longitude:.4f}",
         "current": ",".join(CURRENT_VARS),
-        "hourly": ",".join(HOURLY_VARS),
+        "hourly": ",".join(hourly),
         "daily": ",".join(DAILY_VARS),
         "timezone": "auto",  # Tagesgrenzen am Stellplatz
         "timeformat": "unixtime",  # Zeitpunkte eindeutig (UTC-Sekunden)
         "forecast_days": 7,
         "wind_speed_unit": "kmh",
     }
+    if solar:
+        params["tilt"] = f"{solar[0]:g}"
+        params["azimuth"] = f"{solar[1]:g}"
+    if minutely:
+        params["minutely_15"] = "precipitation"
+        params["forecast_minutely_15"] = 12  # 3 Stunden
     try:
         async with session.get(FORECAST_URL, params=params, timeout=TIMEOUT) as response:
             payload = await response.json(content_type=None)
@@ -248,21 +265,41 @@ async def async_search_places(session: ClientSession, query: str, home_country: 
         raise ApiError(f"Ortssuche fehlgeschlagen: {type(err).__name__}") from err
 
 
-def parse_reverse(payload: dict[str, Any]) -> str | None:
+@dataclass
+class ReversePlace:
+    name: str | None
+    country_code: str | None = None
+    regions: tuple[str, ...] = ()
+
+
+def parse_reverse_details(payload: dict[str, Any]) -> ReversePlace:
     address = (payload or {}).get("address") or {}
+    name = None
     for key in ("city", "town", "village", "hamlet", "municipality", "suburb", "county"):
         if address.get(key):
-            return str(address[key])
-    name = (payload or {}).get("name")
-    return str(name) if name else None
+            name = str(address[key])
+            break
+    if name is None and (payload or {}).get("name"):
+        name = str(payload["name"])
+    regions = tuple(
+        str(address[k]) for k in ("city", "town", "village", "municipality", "county", "state_district", "state", "region")
+        if address.get(k)
+    )
+    code = address.get("country_code")
+    return ReversePlace(name, code.upper() if code else None, regions)
 
 
-async def async_reverse_name(session: ClientSession, latitude: float, longitude: float) -> str | None:
-    params = {"lat": f"{latitude:.5f}", "lon": f"{longitude:.5f}", "format": "jsonv2", "zoom": 14, "accept-language": "de"}
+def parse_reverse(payload: dict[str, Any]) -> str | None:
+    return parse_reverse_details(payload).name
+
+
+async def async_reverse(session: ClientSession, latitude: float, longitude: float) -> ReversePlace | None:
+    params = {"lat": f"{latitude:.5f}", "lon": f"{longitude:.5f}", "format": "jsonv2", "zoom": 14,
+              "addressdetails": 1, "accept-language": "de"}
     try:
         async with session.get(REVERSE_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT) as response:
             response.raise_for_status()
-            return parse_reverse(await response.json(content_type=None))
+            return parse_reverse_details(await response.json(content_type=None))
     except Exception:
         return None
 

@@ -23,12 +23,39 @@
           "update_minutes": "Update every",
           "awning_gust_kmh": "Awning warning from gusts of",
           "storm_gust_kmh": "Storm warning from gusts of",
-          "frost_temperature": "Frost warning at"
+          "frost_temperature": "Frost warning at",
+          "enable_solar": "Solar yield forecast",
+          "enable_rain": "Rain warning (next hour)",
+          "enable_thunder": "Thunderstorm warning",
+          "enable_sun": "Sunrise / sunset",
+          "enable_favorites": "Favourite places",
+          "enable_official_warnings": "Official weather warnings (DWD / MeteoAlarm)",
+          "remove_favorites": "Delete favourite places"
         },
         "data_description": {
           "awning_gust_kmh": "Checks the next 3 hours.",
           "storm_gust_kmh": "Checks the next 12 hours.",
-          "frost_temperature": "Lowest temperature of the next 12 hours."
+          "frost_temperature": "Lowest temperature of the next 12 hours.",
+          "enable_solar": "Expected yield of your solar panels today/tomorrow. Power and orientation in the next step.",
+          "enable_rain": "15-minute precipitation: “rain in … minutes”.",
+          "enable_thunder": "Thunderstorms in the next 6 hours.",
+          "enable_sun": "Next sunrise and sunset at the location.",
+          "enable_favorites": "Save places and pick them on the dashboard.",
+          "enable_official_warnings": "Germany: DWD (per municipality). Other European countries: MeteoAlarm (matched by region name, beta).",
+          "remove_favorites": "Selected places are removed when saving."
+        }
+      },
+      "solar": {
+        "title": "Solar panels",
+        "description": "For the yield forecast. Azimuth: 0° = south, -90° = east, 90° = west. Flat on the roof: tilt 0°.",
+        "data": {
+          "pv_power_wp": "Total panel power",
+          "pv_tilt": "Tilt",
+          "pv_azimuth": "Orientation (azimuth)",
+          "pv_efficiency": "System efficiency"
+        },
+        "data_description": {
+          "pv_efficiency": "Losses from cables, charge controller, heat. 75 % is a good starting point."
         }
       }
     }
@@ -42,6 +69,27 @@
     "sensor": {
       "place": {
         "name": "Place"
+      },
+      "solar_today": {
+        "name": "Solar forecast today"
+      },
+      "solar_tomorrow": {
+        "name": "Solar forecast tomorrow"
+      },
+      "solar_remaining_today": {
+        "name": "Solar forecast remaining today"
+      },
+      "rain_in": {
+        "name": "Rain in"
+      },
+      "sunrise": {
+        "name": "Sunrise"
+      },
+      "sunset": {
+        "name": "Sunset"
+      },
+      "official_warnings": {
+        "name": "Official warnings"
       }
     },
     "binary_sensor": {
@@ -53,6 +101,12 @@
       },
       "frost_warning": {
         "name": "Frost warning"
+      },
+      "rain_soon": {
+        "name": "Rain within the next hour"
+      },
+      "thunder_warning": {
+        "name": "Thunderstorm warning"
       }
     },
     "select": {
@@ -65,11 +119,19 @@
       },
       "search_results": {
         "name": "Search results"
+      },
+      "favorites": {
+        "name": "Favourite places"
       }
     },
     "text": {
       "place_search": {
         "name": "Place search"
+      }
+    },
+    "button": {
+      "save_favorite": {
+        "name": "Save place as favourite"
       }
     }
   }

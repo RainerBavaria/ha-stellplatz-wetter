@@ -283,3 +283,20 @@ async def test_words_without_comma_filter_results(hass, setup, aioclient_mock):
     assert geo[-1][1].query["countryCode"] == "DE"
     # nur ein passender Treffer -> sofort übernommen
     assert hass.states.get("sensor.wohnwagen_ort").state == "Neustadt an der Donau, Bayern, Deutschland"
+
+
+async def test_options_only_map_moved_refreshes(hass, setup, aioclient_mock):
+    entry = setup
+    data = {"tracker": TRACKER, "location": {"latitude": 48.64, "longitude": 12.49}, "update_minutes": 30,
+            "awning_gust_kmh": 38, "storm_gust_kmh": 75, "frost_temperature": 2}
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(result["flow_id"], data)
+    await hass.async_block_till_done()
+    # identische Optionen, nur der Kartenpunkt wird verschoben
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(result["flow_id"], {**data, "location": {"latitude": 47.5, "longitude": 11.1}})
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_shift(hass, 15))
+    await hass.async_block_till_done()
+    assert hass.states.get("select.wohnwagen_standortquelle").state == "manual"
+    assert forecast_calls(aioclient_mock)[-1][1].query["latitude"] == "47.5000"

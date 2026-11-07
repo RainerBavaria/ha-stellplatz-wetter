@@ -16,6 +16,9 @@ Home Assistant weather entity, so every standard weather card works. Set up enti
 - **Warnings** (binary sensors): awning (gusts in next 3 h), storm (12 h), frost (12 h low) – thresholds configurable
 - **Place name** sensor (OpenStreetMap)
 - Keeps showing the last data for up to 6 h when the connection drops
+- **Optional extras** (each can be switched on under *Configure*, all off by default): solar yield forecast, rain in the next hour,
+  thunderstorm warning, sunrise/sunset, favourite places, official warnings (DWD in Germany, MeteoAlarm elsewhere in Europe – beta)
+- Diagnostics download with location data redacted
 
 ![How it works](docs/images/ablauf.svg)
 

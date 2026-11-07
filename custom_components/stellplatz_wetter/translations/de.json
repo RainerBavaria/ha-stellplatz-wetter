@@ -23,12 +23,39 @@
           "update_minutes": "Aktualisierung alle",
           "awning_gust_kmh": "Markisenwarnung ab Böen von",
           "storm_gust_kmh": "Sturmwarnung ab Böen von",
-          "frost_temperature": "Frostwarnung ab"
+          "frost_temperature": "Frostwarnung ab",
+          "enable_solar": "Solar-Ertragsprognose",
+          "enable_rain": "Regenwarnung (nächste Stunde)",
+          "enable_thunder": "Gewitterwarnung",
+          "enable_sun": "Sonnenaufgang / Sonnenuntergang",
+          "enable_favorites": "Lieblingsplätze",
+          "enable_official_warnings": "Amtliche Unwetterwarnungen (DWD / MeteoAlarm)",
+          "remove_favorites": "Lieblingsplätze löschen"
         },
         "data_description": {
           "awning_gust_kmh": "Geprüft werden die nächsten 3 Stunden.",
           "storm_gust_kmh": "Geprüft werden die nächsten 12 Stunden.",
-          "frost_temperature": "Tiefstwert der nächsten 12 Stunden."
+          "frost_temperature": "Tiefstwert der nächsten 12 Stunden.",
+          "enable_solar": "Erwarteter Ertrag deiner Solarmodule heute/morgen. Im nächsten Schritt Leistung und Ausrichtung angeben.",
+          "enable_rain": "Regen in 15-Minuten-Schritten: „Regen in … Minuten“.",
+          "enable_thunder": "Gewitter in den nächsten 6 Stunden.",
+          "enable_sun": "Nächster Sonnenauf- und -untergang am Standort.",
+          "enable_favorites": "Orte speichern und am Dashboard auswählen.",
+          "enable_official_warnings": "Deutschland: DWD (Gemeinde-genau). Andere Länder Europas: MeteoAlarm (Zuordnung über Regionsnamen, Beta).",
+          "remove_favorites": "Markierte Orte werden beim Speichern entfernt."
+        }
+      },
+      "solar": {
+        "title": "Solaranlage",
+        "description": "Für die Ertragsprognose. Azimut: 0° = Süden, -90° = Osten, 90° = Westen. Flach auf dem Dach: Neigung 0°.",
+        "data": {
+          "pv_power_wp": "Modulleistung gesamt",
+          "pv_tilt": "Neigung",
+          "pv_azimuth": "Ausrichtung (Azimut)",
+          "pv_efficiency": "Systemwirkungsgrad"
+        },
+        "data_description": {
+          "pv_efficiency": "Verluste durch Kabel, Laderegler, Wärme. 75 % ist ein guter Startwert."
         }
       }
     }
@@ -42,6 +69,27 @@
     "sensor": {
       "place": {
         "name": "Ort"
+      },
+      "solar_today": {
+        "name": "Solarprognose heute"
+      },
+      "solar_tomorrow": {
+        "name": "Solarprognose morgen"
+      },
+      "solar_remaining_today": {
+        "name": "Solarprognose Rest heute"
+      },
+      "rain_in": {
+        "name": "Regen in"
+      },
+      "sunrise": {
+        "name": "Sonnenaufgang"
+      },
+      "sunset": {
+        "name": "Sonnenuntergang"
+      },
+      "official_warnings": {
+        "name": "Amtliche Warnungen"
       }
     },
     "binary_sensor": {
@@ -53,6 +101,12 @@
       },
       "frost_warning": {
         "name": "Frostwarnung"
+      },
+      "rain_soon": {
+        "name": "Regen in der nächsten Stunde"
+      },
+      "thunder_warning": {
+        "name": "Gewitterwarnung"
       }
     },
     "select": {
@@ -65,11 +119,19 @@
       },
       "search_results": {
         "name": "Suchtreffer"
+      },
+      "favorites": {
+        "name": "Lieblingsplätze"
       }
     },
     "text": {
       "place_search": {
         "name": "Ortssuche"
+      }
+    },
+    "button": {
+      "save_favorite": {
+        "name": "Ort als Lieblingsplatz merken"
       }
     }
   }

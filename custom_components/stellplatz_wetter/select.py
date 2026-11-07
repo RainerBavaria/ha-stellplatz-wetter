@@ -6,12 +6,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import StellplatzConfigEntry
-from .const import MODE_MANUAL, MODE_TRACKER
+from .const import CONF_ENABLE_FAVORITES, MODE_MANUAL, MODE_TRACKER
 from .entity import StellplatzEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: StellplatzConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    async_add_entities([LocationModeSelect(entry.runtime_data, "location_mode"), SearchResultSelect(entry.runtime_data, "search_results")])
+    c = entry.runtime_data
+    entities: list[SelectEntity] = [LocationModeSelect(c, "location_mode"), SearchResultSelect(c, "search_results")]
+    if c.features[CONF_ENABLE_FAVORITES]:
+        entities.append(FavoriteSelect(c, "favorites"))
+    async_add_entities(entities)
 
 
 class LocationModeSelect(StellplatzEntity, SelectEntity):
@@ -64,3 +68,27 @@ class SearchResultSelect(StellplatzEntity, SelectEntity):
     @property
     def extra_state_attributes(self) -> dict[str, bool]:
         return {"auswahl_offen": self.coordinator.results_pending}
+
+
+class FavoriteSelect(StellplatzEntity, SelectEntity):
+    """Gespeicherte Lieblingsplätze – Auswahl setzt den Wetter-Standort."""
+
+    _attr_icon = "mdi:star"
+
+    @property
+    def options(self) -> list[str]:
+        return [NO_RESULTS] + [f["name"] for f in self.coordinator.favorites]
+
+    @property
+    def current_option(self) -> str | None:
+        manual = self.coordinator.state.get("manual") or {}
+        if self.coordinator.mode == MODE_MANUAL:
+            for fav in self.coordinator.favorites:
+                if fav["name"] == manual.get("name"):
+                    return fav["name"]
+        return NO_RESULTS
+
+    async def async_select_option(self, option: str) -> None:
+        if option == NO_RESULTS:
+            return
+        await self.coordinator.async_select_favorite(option)

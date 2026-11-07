@@ -3,6 +3,27 @@
 Alle Änderungen an **Stellplatz-Wetter**, neueste zuerst.
 Die Versionsnummer steht in `custom_components/stellplatz_wetter/manifest.json`.
 
+## 1.3.0 – 2026-11-07
+
+### Neu – Zusatzfunktionen
+Alle einzeln unter **Konfigurieren** einschaltbar, standardmäßig aus. Beim Ausschalten werden die Entitäten wieder entfernt.
+
+- **Solar-Ertragsprognose**: erwarteter Ertrag heute, morgen und für den Rest des Tages (kWh) aus der Einstrahlung auf die
+  Module. Einstellbar: Modulleistung, Neigung, Ausrichtung, Systemwirkungsgrad.
+- **Regenwarnung**: „Regen in … Minuten“ und „Regen in der nächsten Stunde“ (15-Minuten-Niederschlag).
+- **Gewitterwarnung** für die nächsten 6 Stunden.
+- **Sonnenauf- und -untergang** am aktuellen Standort.
+- **Lieblingsplätze**: Ort per Knopf speichern, am Dashboard auswählen, in den Optionen löschen.
+- **Amtliche Unwetterwarnungen**: DWD in Deutschland (gemeindegenau), MeteoAlarm im europäischen Ausland (Beta, Zuordnung über Regionsnamen).
+
+### Neu – Sonstiges
+- **Diagnose-Download** für Fehlermeldungen (Koordinaten, Ortsnamen und Lieblingsplätze werden unkenntlich gemacht).
+- Ort-Sensor hat das neue Attribut `land` (Ländercode).
+- Tests laufen automatisch bei jeder Änderung auf GitHub.
+
+### Behoben
+- Wurde in den Optionen nur der Punkt auf der Karte verschoben, aktualisierte sich das Wetter erst beim nächsten Intervall.
+
 ## 1.2.0 – 2026-11-07
 
 ### Verbessert
