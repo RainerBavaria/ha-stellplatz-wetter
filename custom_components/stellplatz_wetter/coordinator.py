@@ -13,7 +13,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import ApiError, WeatherData, async_fetch_forecast, async_reverse_name, async_search_place, distance_km
+from .api import ApiError, WeatherData, async_fetch_forecast, async_reverse_name, async_search_places, distance_km
 from .const import (
     AWNING_HOURS,
     CONF_AWNING_GUST,
@@ -107,6 +107,7 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
                 "name": None,
             },
             "last_tracker": stored.get("last_tracker"),
+            "results": stored.get("results") or [],
         }
         if self.state["mode"] == MODE_TRACKER and not self.tracker_id:
             self.state["mode"] = MODE_MANUAL
@@ -141,13 +142,32 @@ class StellplatzCoordinator(DataUpdateCoordinator[StellplatzData]):
         await self.async_refresh()
 
     async def async_search(self, query: str) -> bool:
-        """Ort suchen und als manuellen Standort setzen. False = nicht gefunden."""
-        place = await async_search_place(async_get_clientsession(self.hass), query)
-        if place is None:
+        """Ort suchen. Ein Treffer: sofort übernehmen. Mehrere: in "Suchtreffer" zur Auswahl anbieten.
+
+        False = nichts gefunden.
+        """
+        places = await async_search_places(async_get_clientsession(self.hass), query, self.hass.config.country)
+        if not places:
             return False
         self.last_search = query
-        await self.async_set_manual(place.latitude, place.longitude, place.name)
+        self.state["results"] = [{"latitude": p.latitude, "longitude": p.longitude, "name": p.name} for p in places]
+        if len(places) == 1:
+            await self.async_set_manual(places[0].latitude, places[0].longitude, places[0].name)
+        else:
+            self._save()
+            self.async_update_listeners()  # Suchtreffer-Auswahl aktualisieren, Standort bleibt
         return True
+
+    @property
+    def results(self) -> list[dict[str, Any]]:
+        return list(self.state.get("results") or [])
+
+    async def async_select_result(self, name: str) -> None:
+        for item in self.results:
+            if item["name"] == name:
+                await self.async_set_manual(item["latitude"], item["longitude"], item["name"])
+                return
+        raise ValueError(name)
 
     # ---------- Tracker beobachten ----------
     @callback

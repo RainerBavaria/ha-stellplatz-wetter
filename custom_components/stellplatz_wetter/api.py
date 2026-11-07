@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 from aiohttp import ClientSession, ClientTimeout
 
-from .const import FORECAST_URL, GEOCODING_URL, REVERSE_URL, USER_AGENT
+from .const import FORECAST_URL, GEOCODING_URL, REVERSE_URL, SEARCH_URL, USER_AGENT
 
 TIMEOUT = ClientTimeout(total=20)
 
@@ -111,22 +112,93 @@ class Place:
     name: str
 
 
-def parse_search(payload: dict[str, Any]) -> Place | None:
-    results = (payload or {}).get("results") or []
-    if not results:
-        return None
-    first = results[0]
-    parts = [first.get("name"), first.get("admin1"), first.get("country")]
-    label = ", ".join(dict.fromkeys(p for p in parts if p))
-    return Place(float(first["latitude"]), float(first["longitude"]), label or str(first.get("name")))
+MAX_RESULTS = 3
 
 
-async def async_search_place(session: ClientSession, query: str) -> Place | None:
-    params = {"name": query, "count": 1, "language": "de", "format": "json"}
+def _unique(places: list[Place]) -> list[Place]:
+    """Doppelte Treffer entfernen, gleiche Namen unterscheidbar machen."""
+    result: list[Place] = []
+    for place in places:
+        if any(distance_km(p.latitude, p.longitude, place.latitude, place.longitude) < 1 for p in result):
+            continue
+        if any(p.name == place.name for p in result):
+            place = Place(place.latitude, place.longitude, f"{place.name} ({place.latitude:.2f}, {place.longitude:.2f})")
+        result.append(place)
+    return result[:MAX_RESULTS]
+
+
+def parse_search(payload: dict[str, Any]) -> list[Place]:
+    """Open-Meteo-Ortssuche -> Liste von Treffern."""
+    places: list[Place] = []
+    for item in (payload or {}).get("results") or []:
+        try:
+            lat, lon = float(item["latitude"]), float(item["longitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        parts = [item.get("name"), item.get("admin1"), item.get("country")]
+        label = ", ".join(dict.fromkeys(p for p in parts if p)) or f"{lat:.3f}, {lon:.3f}"
+        places.append(Place(lat, lon, label))
+    return _unique(places)
+
+
+POSTCODE_RE = re.compile(r"^\s*(?P<code>[0-9]{4,5})\s*(?:[, ]\s*(?P<cc>[A-Za-z]{2}))?\s*$")
+
+
+def parse_nominatim_search(payload: Any, postcode: str | None = None) -> list[Place]:
+    """Nominatim-Suche (format=jsonv2, addressdetails=1) -> Liste von Treffern."""
+    if not isinstance(payload, list):
+        return []
+    places: list[Place] = []
+    for item in payload:
+        try:
+            lat, lon = float(item["lat"]), float(item["lon"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        address = item.get("address") or {}
+        town = next((address[k] for k in ("city", "town", "village", "municipality", "hamlet", "suburb") if address.get(k)), None)
+        region = address.get("state")
+        country = address.get("country")
+        if town:
+            first = f"{postcode or address.get('postcode') or ''} {town}".strip() if postcode else town
+            label = ", ".join(dict.fromkeys(p for p in (first, region, country) if p))
+        else:
+            parts = [p.strip() for p in str(item.get("display_name") or "").split(",") if p.strip()]
+            label = ", ".join(parts[:3]) or (postcode or f"{lat:.3f}, {lon:.3f}")
+        places.append(Place(lat, lon, label))
+    return _unique(places)
+
+
+async def _nominatim(session: ClientSession, params: dict[str, Any], postcode: str | None = None) -> list[Place]:
+    query = {"format": "jsonv2", "addressdetails": 1, "limit": MAX_RESULTS, "accept-language": "de", **params}
+    async with session.get(SEARCH_URL, params=query, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT) as response:
+        response.raise_for_status()
+        return parse_nominatim_search(await response.json(content_type=None), postcode)
+
+
+async def _open_meteo_search(session: ClientSession, query: str) -> list[Place]:
+    params = {"name": query, "count": MAX_RESULTS, "language": "de", "format": "json"}
+    async with session.get(GEOCODING_URL, params=params, timeout=TIMEOUT) as response:
+        response.raise_for_status()
+        return parse_search(await response.json(content_type=None))
+
+
+async def async_search_places(session: ClientSession, query: str, home_country: str | None = None) -> list[Place]:
+    """Ort suchen: Postleitzahl ("84130", "84130 DE", "84130, AT") oder Ortsname. Bis zu 3 Treffer."""
     try:
-        async with session.get(GEOCODING_URL, params=params, timeout=TIMEOUT) as response:
-            response.raise_for_status()
-            return parse_search(await response.json(content_type=None))
+        match = POSTCODE_RE.match(query)
+        if match:
+            code, country = match["code"], (match["cc"] or "").lower()
+            countries = [country] if country else ([home_country.lower()] if home_country else []) + [""]
+            for cc in countries:
+                places = await _nominatim(session, {"postalcode": code, **({"countrycodes": cc} if cc else {})}, code)
+                if places:
+                    return places
+            return []
+        places = await _open_meteo_search(session, query)
+        if places:
+            return places
+        # Fallback: Freitextsuche bei OpenStreetMap (findet auch Adressen, Campingplätze usw.)
+        return await _nominatim(session, {"q": query})
     except Exception as err:
         raise ApiError(f"Ortssuche fehlgeschlagen: {type(err).__name__}") from err
 

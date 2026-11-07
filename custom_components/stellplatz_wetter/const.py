@@ -30,6 +30,7 @@ MODE_MANUAL = "manual"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+SEARCH_URL = "https://nominatim.openstreetmap.org/search"
 USER_AGENT = "HomeAssistant-Stellplatz-Wetter/1.0 (custom integration)"
 
 # Ab dieser Bewegung (km) des Trackers wird neu abgefragt

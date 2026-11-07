@@ -6,7 +6,7 @@ from homeassistant import config_entries, data_entry_flow
 from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
-from custom_components.stellplatz_wetter.const import DOMAIN, FORECAST_URL, GEOCODING_URL, REVERSE_URL
+from custom_components.stellplatz_wetter.const import DOMAIN, FORECAST_URL, GEOCODING_URL, REVERSE_URL, SEARCH_URL
 
 from .payloads import forecast
 
@@ -115,6 +115,7 @@ async def test_place_search_sets_manual_location(hass, setup, aioclient_mock):
 
 async def test_place_search_not_found(hass, setup, aioclient_mock):
     aioclient_mock.get(GEOCODING_URL, json={"generationtime_ms": 0.1})
+    aioclient_mock.get(SEARCH_URL, json=[])
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "Xyzzyqq"}, blocking=True)
     assert hass.states.get("select.wohnwagen_standortquelle").state == "tracker"
@@ -191,3 +192,58 @@ async def test_state_survives_reload(hass, setup, aioclient_mock):
     await hass.async_block_till_done()
     assert hass.states.get("select.wohnwagen_standortquelle").state == "manual"
     assert hass.states.get("sensor.wohnwagen_ort").state == "Lignano, Italien"
+
+
+NEUSTADT = {"results": [
+    {"name": "Neustadt an der Donau", "latitude": 48.80, "longitude": 11.77, "admin1": "Bayern", "country": "Deutschland"},
+    {"name": "Neustadt an der Weinstraße", "latitude": 49.35, "longitude": 8.14, "admin1": "Rheinland-Pfalz", "country": "Deutschland"},
+    {"name": "Neustadt in Holstein", "latitude": 54.11, "longitude": 10.81, "admin1": "Schleswig-Holstein", "country": "Deutschland"},
+    {"name": "Neustadt (Hessen)", "latitude": 50.85, "longitude": 9.11, "admin1": "Hessen", "country": "Deutschland"},
+]}
+
+
+async def test_ambiguous_search_waits_for_choice(hass, setup, aioclient_mock):
+    aioclient_mock.get(GEOCODING_URL, json=NEUSTADT)
+    calls_before = len(forecast_calls(aioclient_mock))
+    await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "Neustadt"}, blocking=True)
+    await hass.async_block_till_done()
+    results = hass.states.get("select.wohnwagen_suchtreffer")
+    assert results.attributes["options"] == [
+        "Neustadt an der Donau, Bayern, Deutschland",
+        "Neustadt an der Weinstraße, Rheinland-Pfalz, Deutschland",
+        "Neustadt in Holstein, Schleswig-Holstein, Deutschland",
+    ]
+    assert results.state == "unknown" and results.attributes["auswahl_offen"] is True
+    # noch nichts übernommen
+    assert hass.states.get("select.wohnwagen_standortquelle").state == "tracker"
+    assert len(forecast_calls(aioclient_mock)) == calls_before
+
+    await hass.services.async_call("select", "select_option", {"entity_id": "select.wohnwagen_suchtreffer",
+                                                               "option": "Neustadt in Holstein, Schleswig-Holstein, Deutschland"}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get("select.wohnwagen_standortquelle").state == "manual"
+    assert hass.states.get("sensor.wohnwagen_ort").state == "Neustadt in Holstein, Schleswig-Holstein, Deutschland"
+    assert forecast_calls(aioclient_mock)[-1][1].query["latitude"] == "54.1100"
+    state = hass.states.get("select.wohnwagen_suchtreffer")
+    assert state.state == "Neustadt in Holstein, Schleswig-Holstein, Deutschland" and state.attributes["auswahl_offen"] is False
+
+
+async def test_postcode_search_uses_osm(hass, setup, aioclient_mock):
+    hass.config.country = "DE"
+    aioclient_mock.get(SEARCH_URL, json=[{"lat": "48.633", "lon": "12.492", "display_name": "84130, Dingolfing",
+                                          "address": {"postcode": "84130", "town": "Dingolfing", "state": "Bayern", "country": "Deutschland"}}])
+    await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "84130"}, blocking=True)
+    await hass.async_block_till_done()
+    call = [c for c in aioclient_mock.mock_calls if str(c[1]).startswith(SEARCH_URL)][-1]
+    assert call[1].query["postalcode"] == "84130" and call[1].query["countrycodes"] == "de"
+    assert hass.states.get("sensor.wohnwagen_ort").state == "84130 Dingolfing, Bayern, Deutschland"
+    assert hass.states.get("select.wohnwagen_standortquelle").state == "manual"
+
+
+async def test_name_not_in_open_meteo_falls_back_to_osm(hass, setup, aioclient_mock):
+    aioclient_mock.get(GEOCODING_URL, json={})
+    aioclient_mock.get(SEARCH_URL, json=[{"lat": "45.67", "lon": "13.38", "display_name": "Camping Tenda Azzurra, Grado, Gorizia, Italien",
+                                          "address": {}}])
+    await hass.services.async_call("text", "set_value", {"entity_id": "text.wohnwagen_ortssuche", "value": "Camping Tenda Azzurra"}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.wohnwagen_ort").state == "Camping Tenda Azzurra, Grado, Gorizia"

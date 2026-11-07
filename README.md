@@ -5,7 +5,7 @@ Home-Assistant-Wetter-Entität. Funktioniert mit allen Standard-Wetterkacheln (W
 Clock Weather Card, Mushroom usw.). Einrichtung komplett über die Oberfläche, keine `configuration.yaml`.
 
 - **Standort automatisch** von einem Tracker (z. B. fest verbautes iPhone mit Companion App), neue Abfrage sobald sich der Wagen > 1 km bewegt
-- **Standort manuell**: Ortssuche direkt am Dashboard oder Punkt auf der Karte setzen
+- **Standort manuell**: Ortssuche direkt am Dashboard (Ortsname, PLZ oder Campingplatz) oder Punkt auf der Karte setzen
 - **Vorhersage** stündlich (72 h) und täglich (7 Tage), Wetterdaten von [Open-Meteo](https://open-meteo.com) (kostenlos, kein API-Schlüssel)
 - **Warnungen**: Markise (Böen in den nächsten 3 h), Sturm (12 h), Frost (Tiefstwert 12 h) – Grenzwerte einstellbar
 - **Ortsname** als Sensor (OpenStreetMap)
@@ -30,7 +30,8 @@ Grenzwerte, Tracker, Aktualisierungsintervall und den Ort auf der Karte änderst
 | `weather.wohnwagen_wetter` | Aktuelles Wetter + Vorhersage (täglich/stündlich) |
 | `sensor.wohnwagen_ort` | Ortsname, Attribute: Koordinaten, Quelle, Datenalter |
 | `select.wohnwagen_standortquelle` | *GPS-Tracker* oder *Manueller Ort* |
-| `text.wohnwagen_ortssuche` | Ortsnamen eintippen → wird als Standort gesetzt |
+| `text.wohnwagen_ortssuche` | Ort, PLZ oder Campingplatz eintippen und mit Enter bestätigen |
+| `select.wohnwagen_suchtreffer` | Bei mehreren Treffern: die besten 3 zur Auswahl |
 | `binary_sensor.wohnwagen_markisenwarnung` | Böen ≥ Grenzwert in den nächsten 3 h |
 | `binary_sensor.wohnwagen_sturmwarnung` | Böen ≥ Grenzwert in den nächsten 12 h |
 | `binary_sensor.wohnwagen_frostwarnung` | Tiefstwert ≤ Grenzwert in den nächsten 12 h |
@@ -64,6 +65,37 @@ entities:
   - entity: sensor.wohnwagen_ort
   - entity: select.wohnwagen_standortquelle
   - entity: text.wohnwagen_ortssuche
+```
+
+### Ortssuche
+
+| Eingabe | Ergebnis |
+|---|---|
+| `Grado` | eindeutiger Treffer → wird sofort übernommen |
+| `Neustadt` | mehrere Treffer → die besten 3 erscheinen unter **Suchtreffer**, der Standort ändert sich erst nach deiner Auswahl |
+| `84130` | Postleitzahl (zuerst im Land deiner HA-Einstellungen gesucht) |
+| `6020, AT` / `Grado, IT` | mit Land eingegrenzt |
+| `Camping Tenda Azzurra` | Freitext über OpenStreetMap, falls der Name kein Ort ist |
+
+Passende Karte:
+
+```yaml
+type: vertical-stack
+cards:
+  - type: tile
+    entity: sensor.wohnwagen_ort
+    name: Wetter-Standort
+    icon: mdi:map-marker
+    features:
+      - type: select-options
+        entity: select.wohnwagen_standortquelle
+  - type: entities
+    entities:
+      - entity: text.wohnwagen_ortssuche
+        name: Ort suchen
+        icon: mdi:map-search
+      - entity: select.wohnwagen_suchtreffer
+        name: Treffer wählen
 ```
 
 ## Datenquellen

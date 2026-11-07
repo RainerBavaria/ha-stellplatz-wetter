@@ -62,6 +62,9 @@
           "tracker": "GPS tracker",
           "manual": "Manual location"
         }
+      },
+      "search_results": {
+        "name": "Search results"
       }
     },
     "text": {

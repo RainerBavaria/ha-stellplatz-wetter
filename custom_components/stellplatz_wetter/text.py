@@ -33,5 +33,5 @@ class PlaceSearch(StellplatzEntity, TextEntity):
         except ApiError as err:
             raise HomeAssistantError(str(err)) from err
         if not found:
-            raise HomeAssistantError(f"Ort „{query}“ nicht gefunden")
+            raise HomeAssistantError(f"Ort „{query}“ nicht gefunden (Tipp: Ortsname oder PLZ, z. B. „84130“ oder „Grado, IT“)")
         self.async_write_ha_state()
