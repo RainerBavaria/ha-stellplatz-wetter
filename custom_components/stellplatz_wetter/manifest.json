@@ -1,13 +1,13 @@
 {
   "domain": "stellplatz_wetter",
   "name": "Stellplatz-Wetter",
-  "codeowners": ["@GITHUB_USER"],
+  "codeowners": ["@RainerBavaria"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/GITHUB_USER/ha-stellplatz-wetter",
+  "documentation": "https://github.com/RainerBavaria/ha-stellplatz-wetter",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/GITHUB_USER/ha-stellplatz-wetter/issues",
+  "issue_tracker": "https://github.com/RainerBavaria/ha-stellplatz-wetter/issues",
   "requirements": [],
   "version": "1.0.0"
 }
